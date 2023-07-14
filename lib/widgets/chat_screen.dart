@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:juejin_chat_demo/markdown/latex.dart';
 import 'package:juejin_chat_demo/models/message.dart';
 import 'package:juejin_chat_demo/states/chat_ui_state.dart';
 import 'package:markdown_widget/config/markdown_generator.dart';
@@ -80,7 +81,7 @@ class UserInputWidget extends HookConsumerWidget {
         content: content,
         isUser: true,
         timestamp: DateTime.now());
-    ref.read(messageProvider.notifier).addMessage(message);
+    ref.read(messageProvider.notifier).upsertMessage(message);
     controller.clear();
     _requestChatGPT(ref, content);
   }
@@ -156,7 +157,14 @@ class MessageContentWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: MarkdownGenerator().buildWidgets(message.content),
+      children: MarkdownGenerator(
+        generators: [
+          latexGenerator,
+        ],
+        inlineSyntaxes: [
+          LatexSyntax(),
+        ],
+      ).buildWidgets(message.content),
     );
   }
 }

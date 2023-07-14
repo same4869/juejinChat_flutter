@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:juejin_chat_demo/data/database.dart';
 import 'package:juejin_chat_demo/widgets/chat_screen.dart';
 
-void main() {
+import 'injection.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  db = await $FloorAppDatabase.databaseBuilder('app_database.db').build();
   runApp(
       //为了能让组件读取provider,我们需要将整个应用都包裹下
       const ProviderScope(
