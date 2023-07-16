@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:juejin_chat_demo/markdown/latex.dart';
 import 'package:juejin_chat_demo/models/message.dart';
 import 'package:juejin_chat_demo/states/chat_ui_state.dart';
+import 'package:juejin_chat_demo/states/session_state.dart';
 import 'package:markdown_widget/config/markdown_generator.dart';
+import 'package:markdown_widget/markdown_widget.dart';
+import '../models/session.dart';
 import '../states/message_state.dart';
 import '../injection.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+
+import 'chat_input.dart';
 
 class ChatScreen extends HookConsumerWidget {
   const ChatScreen({super.key});
@@ -16,6 +22,21 @@ class ChatScreen extends HookConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chat'),
+        actions: [
+          IconButton(
+              onPressed: () {
+                GoRouter.of(context).push('/history');
+              },
+              icon: const Icon(Icons.history)),
+          IconButton(
+            onPressed: () {
+              ref
+                  .read(sessionStateNotifierProvider.notifier)
+                  .setActiveSession(null);
+            },
+            icon: const Icon(Icons.add),
+          )
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -30,71 +51,14 @@ class ChatScreen extends HookConsumerWidget {
   }
 }
 
-class UserInputWidget extends HookConsumerWidget {
-  const UserInputWidget({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final chatUIState = ref.watch(chatUiProvider);
-    final controller = useTextEditingController();
-    return TextField(
-      controller: controller,
-      enabled: !chatUIState.requestLoading,
-      decoration: InputDecoration(
-          hintText: 'Type a messgae',
-          suffixIcon: IconButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                _sendMessage(ref, controller);
-              }
-            },
-            icon: const Icon(
-              Icons.send,
-            ),
-          )),
-    );
-  }
-
-  _requestChatGPT(WidgetRef ref, String content) async {
-    ref.read(chatUiProvider.notifier).setRequestLoading(true);
-    try {
-      final id = uuid.v4();
-      await chatgpt.streamChat(
-        content,
-        (text) {
-          final message = Message(
-              id: id, content: text, isUser: false, timestamp: DateTime.now());
-          ref.read(messageProvider.notifier).upsertMessage(message);
-        },
-      );
-    } catch (err) {
-      logger.e("requestChatGPT error: $err", err);
-    } finally {
-      ref.read(chatUiProvider.notifier).setRequestLoading(false);
-    }
-  }
-
-  _sendMessage(WidgetRef ref, TextEditingController controller) {
-    final content = controller.text;
-    final message = Message(
-        id: uuid.v4(),
-        content: content,
-        isUser: true,
-        timestamp: DateTime.now());
-    ref.read(messageProvider.notifier).upsertMessage(message);
-    controller.clear();
-    _requestChatGPT(ref, content);
-  }
-}
-
 class ChatMessageList extends HookConsumerWidget {
   const ChatMessageList({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final messages = ref.watch(messageProvider);
+    final messages = ref.watch(activeSessionMessagesProvider);
     final listController = useScrollController();
-    ref.listen(messageProvider, (previous, next) {
+    ref.listen(activeSessionMessagesProvider, (previous, next) {
       Future.delayed(const Duration(milliseconds: 50), () {
         listController.jumpTo(listController.position.maxScrollExtent);
       });
