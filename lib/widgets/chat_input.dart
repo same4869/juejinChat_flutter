@@ -9,6 +9,80 @@ import '../states/chat_ui_state.dart';
 import '../states/message_state.dart';
 import '../states/session_state.dart';
 
+class ChatInputWidget extends HookConsumerWidget {
+  const ChatInputWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final voiceMode = useState(false);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () {
+              voiceMode.value = !voiceMode.value;
+            },
+            icon: Icon(voiceMode.value ? Icons.keyboard : Icons.keyboard_voice),
+          ),
+          Expanded(
+            child: voiceMode.value
+                ? const AudioInputWidget()
+                : const UserInputWidget(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AudioInputWidget extends HookConsumerWidget {
+  const AudioInputWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recording = useState(false);
+    final transcripting = useState(false);
+    final uiState = ref.watch(chatUiProvider);
+    return transcripting.value || uiState.requestLoading
+        ? ElevatedButton(
+            onPressed: null,
+            child:
+                Text(transcripting.value ? "Transcripting..." : "Loading..."))
+        : GestureDetector(
+            onLongPressStart: (details) {
+              recording.value = true;
+              recorder.start();
+            },
+            onLongPressEnd: (details) async {
+              recording.value = false;
+              final path = await recorder.stop();
+              if (path != null) {
+                try {
+                  transcripting.value = true;
+                  final text = await chatgpt.speechToText(path);
+                  transcripting.value = false;
+                  if (text.trim().isNotEmpty) {
+                    __sendMessage(ref, text);
+                  }
+                } catch (err) {
+                  logger.e("err: $err", err);
+                  transcripting.value = false;
+                }
+              }
+            },
+            onLongPressCancel: () {
+              recording.value = false;
+              recorder.stop();
+            },
+            child: ElevatedButton(
+              child: Text(recording.value ? "Recording..." : "Hold to speak"),
+              onPressed: () {},
+            ),
+          );
+  }
+}
+
 class UserInputWidget extends HookConsumerWidget {
   const UserInputWidget({super.key});
 
@@ -33,49 +107,6 @@ class UserInputWidget extends HookConsumerWidget {
           )),
     );
   }
-
-  _requestChatGPT(WidgetRef ref, String content, {int? sessionId}) async {
-    ref.read(chatUiProvider.notifier).setRequestLoading(true);
-    try {
-      final id = uuid.v4();
-      await chatgpt.streamChat(
-        content,
-        (text) {
-          final message =
-              _createMessage(text, id: id, isUser: false, sessionId: sessionId);
-          ref.read(messageProvider.notifier).upsertMessage(message);
-          logger.d("message -> $message");
-        },
-      );
-    } catch (err) {
-      logger.e("requestChatGPT error: $err", err);
-    } finally {
-      ref.read(chatUiProvider.notifier).setRequestLoading(false);
-    }
-  }
-
-  _sendMessage(WidgetRef ref, TextEditingController controller) async {
-    final content = controller.text;
-    Message message = _createMessage(content);
-    var active = ref.watch(activeSessionProvider);
-    var sessionId = active?.id ?? 0;
-    if (sessionId <= 0) {
-      active = Session(title: content);
-      active = await ref
-          .read(sessionStateNotifierProvider.notifier)
-          .upsertSession(active);
-      sessionId = active.id!;
-      ref
-          .read(sessionStateNotifierProvider.notifier)
-          .setActiveSession(active.copyWith(id: sessionId));
-    }
-
-    ref
-        .read(messageProvider.notifier)
-        .upsertMessage(message.copyWith(sessionId: sessionId));
-    controller.clear();
-    _requestChatGPT(ref, content, sessionId: sessionId);
-  }
 }
 
 Message _createMessage(
@@ -92,4 +123,53 @@ Message _createMessage(
     sessionId: sessionId ?? 0,
   );
   return message;
+}
+
+_requestChatGPT(WidgetRef ref, String content, {int? sessionId}) async {
+  ref.read(chatUiProvider.notifier).setRequestLoading(true);
+  final messages = ref.watch(activeSessionMessagesProvider);
+  try {
+    final id = uuid.v4();
+    await chatgpt.streamChat(
+      messages,
+      onSuccess: (text) {
+        final message =
+            _createMessage(text, id: id, isUser: false, sessionId: sessionId);
+        ref.read(messageProvider.notifier).upsertMessage(message);
+        logger.d("message -> $message");
+      },
+    );
+  } catch (err) {
+    logger.e("requestChatGPT error: $err", err);
+  } finally {
+    ref.read(chatUiProvider.notifier).setRequestLoading(false);
+  }
+}
+
+_sendMessage(WidgetRef ref, TextEditingController controller) async {
+  final content = controller.text;
+  controller.clear();
+  __sendMessage(ref, content);
+}
+
+__sendMessage(WidgetRef ref, String content) async {
+  Message message = _createMessage(content);
+  var active = ref.watch(activeSessionProvider);
+  var sessionId = active?.id ?? 0;
+  if (sessionId <= 0) {
+    active = Session(title: content);
+    active = await ref
+        .read(sessionStateNotifierProvider.notifier)
+        .upsertSession(active);
+    sessionId = active.id!;
+    ref
+        .read(sessionStateNotifierProvider.notifier)
+        .setActiveSession(active.copyWith(id: sessionId));
+  }
+
+  ref
+      .read(messageProvider.notifier)
+      .upsertMessage(message.copyWith(sessionId: sessionId));
+
+  _requestChatGPT(ref, content, sessionId: sessionId);
 }

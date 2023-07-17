@@ -43,7 +43,7 @@ class ChatScreen extends HookConsumerWidget {
         child: Column(
           children: const [
             Expanded(child: ChatMessageList()),
-            UserInputWidget()
+            ChatInputWidget()
           ],
         ),
       ),

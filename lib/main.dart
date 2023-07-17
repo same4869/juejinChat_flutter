@@ -1,14 +1,15 @@
 import 'package:floor/floor.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_tiktoken/flutter_tiktoken.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:juejin_chat_demo/data/database.dart';
 import 'package:juejin_chat_demo/router.dart';
-import 'package:juejin_chat_demo/widgets/chat_screen.dart';
 
 import 'injection.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await TiktokenDataProcessCenter().initata();
   db = await $FloorAppDatabase.databaseBuilder('app_database.db').addMigrations(
     [
       Migration(1, 2, (database) async {
