@@ -8,7 +8,6 @@ import '../models/message.dart';
 import '../models/session.dart';
 import 'converter/datetime_converter.dart';
 import 'dao/message_dao.dart';
-import 'dao/session_dao.dart';
 
 part 'database.g.dart';
 

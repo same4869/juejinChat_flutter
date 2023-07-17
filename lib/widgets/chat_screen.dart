@@ -3,13 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:juejin_chat_demo/markdown/latex.dart';
 import 'package:juejin_chat_demo/models/message.dart';
-import 'package:juejin_chat_demo/states/chat_ui_state.dart';
 import 'package:juejin_chat_demo/states/session_state.dart';
 import 'package:markdown_widget/config/markdown_generator.dart';
 import 'package:markdown_widget/markdown_widget.dart';
-import '../models/session.dart';
 import '../states/message_state.dart';
-import '../injection.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'chat_input.dart';
@@ -38,7 +35,8 @@ class ChatScreen extends HookConsumerWidget {
           )
         ],
       ),
-      body: Padding(
+      body: Container(
+        color: const Color(0xFFF1F1F1),
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: const [
@@ -66,21 +64,32 @@ class ChatMessageList extends HookConsumerWidget {
     return ListView.separated(
         controller: listController,
         itemBuilder: (context, index) {
-          return MessageItem(message: messages[index]);
+          final msg = messages[index];
+          return msg.isUser
+              ? SentMessageItem(
+                  message: msg,
+                  backgroundColor: const Color(0xFF8FE869),
+                )
+              : ReceivedMessageItem(message: msg);
         },
         separatorBuilder: ((context, index) => const Divider(
               height: 16,
+              color: Colors.transparent,
             )),
         itemCount: messages.length);
   }
 }
 
-class MessageItem extends StatelessWidget {
+class ReceivedMessageItem extends StatelessWidget {
   final Message message;
+  final Color backgroundColor;
+  final double radius;
 
-  const MessageItem({
+  const ReceivedMessageItem({
     super.key,
     required this.message,
+    this.backgroundColor = Colors.white,
+    this.radius = 8,
   });
 
   @override
@@ -90,20 +99,74 @@ class MessageItem extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         CircleAvatar(
-          foregroundColor: Colors.white,
-          backgroundColor: message.isUser ? Colors.blue : Colors.grey,
-          child: Text(
-            message.isUser ? 'A' : 'GPT',
+          backgroundColor: const Color.fromARGB(255, 230, 230, 230),
+          child: Container(
+            color: Colors.transparent,
+            child: Image.asset('assets/images/chatgpt.png'),
           ),
         ),
         const SizedBox(
           width: 8,
         ),
+        CustomPaint(
+          painter: Triangle(backgroundColor),
+        ),
         Flexible(
             child: Container(
+          decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(radius)),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           margin: const EdgeInsets.only(right: 48),
           child: MessageContentWidget(message: message),
         )),
+      ],
+    );
+  }
+}
+
+class SentMessageItem extends StatelessWidget {
+  final Message message;
+  final Color backgroundColor;
+  final double radius;
+
+  const SentMessageItem({
+    super.key,
+    required this.message,
+    this.backgroundColor = Colors.white,
+    this.radius = 8,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Flexible(
+            child: Container(
+          decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(radius)),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          margin: const EdgeInsets.only(left: 48),
+          child: MessageContentWidget(message: message),
+        )),
+        CustomPaint(
+          painter: Triangle(backgroundColor),
+        ),
+        const SizedBox(
+          width: 8,
+        ),
+        const CircleAvatar(
+          backgroundColor: Colors.blue,
+          child: Text(
+            'A',
+            style: TextStyle(
+              color: Colors.white,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -130,5 +193,27 @@ class MessageContentWidget extends StatelessWidget {
         ],
       ).buildWidgets(message.content),
     );
+  }
+}
+
+class Triangle extends CustomPainter {
+  final Color bgColor;
+
+  Triangle(this.bgColor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    var paint = Paint()..color = bgColor;
+
+    var path = Path();
+    path.lineTo(-5, 0);
+    path.lineTo(0, 10);
+    path.lineTo(5, 0);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) {
+    return false;
   }
 }
