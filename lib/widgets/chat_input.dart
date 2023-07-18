@@ -28,7 +28,7 @@ class ChatInputWidget extends HookConsumerWidget {
           Expanded(
             child: voiceMode.value
                 ? const AudioInputWidget()
-                : const UserInputWidget(),
+                : const TextInputWidget(),
           ),
         ],
       ),
@@ -83,28 +83,48 @@ class AudioInputWidget extends HookConsumerWidget {
   }
 }
 
-class UserInputWidget extends HookConsumerWidget {
-  const UserInputWidget({super.key});
+class TextInputWidget extends HookConsumerWidget {
+  const TextInputWidget({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chatUIState = ref.watch(chatUiProvider);
+    // final chatUIState = ref.watch(chatUiProvider);
     final controller = useTextEditingController();
+    final uiState = ref.watch(chatUiProvider);
     return TextField(
       controller: controller,
-      enabled: !chatUIState.requestLoading,
+      // enabled: !chatUIState.requestLoading,
       decoration: InputDecoration(
-          hintText: 'Type a messgae',
-          suffixIcon: IconButton(
-            onPressed: () {
-              if (controller.text.isNotEmpty) {
-                _sendMessage(ref, controller);
-              }
-            },
-            icon: const Icon(
-              Icons.send,
-            ),
-          )),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        hintText: 'Type a message...', // 显示在输入框内的提示文字
+        suffixIcon: SizedBox(
+          width: 40,
+          child: uiState.requestLoading
+              ? const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              : IconButton(
+                  onPressed: () {
+                    // 这里处理发送事件
+                    if (controller.text.trim().isNotEmpty) {
+                      _sendMessage(ref, controller);
+                    }
+                  },
+                  icon: const Icon(
+                    Icons.send,
+                  ),
+                ),
+        ),
+      ),
     );
   }
 }

@@ -4,8 +4,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:juejin_chat_demo/markdown/latex.dart';
 import 'package:juejin_chat_demo/models/message.dart';
 import 'package:juejin_chat_demo/states/session_state.dart';
+import 'package:juejin_chat_demo/widgets/typing_cursor.dart';
 import 'package:markdown_widget/config/markdown_generator.dart';
 import 'package:markdown_widget/markdown_widget.dart';
+import '../markdown/code_wrapper.dart';
+import '../states/chat_ui_state.dart';
 import '../states/message_state.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -56,6 +59,7 @@ class ChatMessageList extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final messages = ref.watch(activeSessionMessagesProvider);
     final listController = useScrollController();
+    final uiState = ref.watch(chatUiProvider);
     ref.listen(activeSessionMessagesProvider, (previous, next) {
       Future.delayed(const Duration(milliseconds: 50), () {
         listController.jumpTo(listController.position.maxScrollExtent);
@@ -70,7 +74,11 @@ class ChatMessageList extends HookConsumerWidget {
                   message: msg,
                   backgroundColor: const Color(0xFF8FE869),
                 )
-              : ReceivedMessageItem(message: msg);
+              : ReceivedMessageItem(
+                  message: msg,
+                  typing:
+                      index == messages.length - 1 && uiState.requestLoading,
+                );
         },
         separatorBuilder: ((context, index) => const Divider(
               height: 16,
@@ -84,12 +92,14 @@ class ReceivedMessageItem extends StatelessWidget {
   final Message message;
   final Color backgroundColor;
   final double radius;
+  final bool typing;
 
   const ReceivedMessageItem({
     super.key,
     required this.message,
     this.backgroundColor = Colors.white,
     this.radius = 8,
+    this.typing = false,
   });
 
   @override
@@ -118,7 +128,10 @@ class ReceivedMessageItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(radius)),
           padding: const EdgeInsets.symmetric(horizontal: 8),
           margin: const EdgeInsets.only(right: 48),
-          child: MessageContentWidget(message: message),
+          child: MessageContentWidget(
+            message: message,
+            typing: typing,
+          ),
         )),
       ],
     );
@@ -173,25 +186,37 @@ class SentMessageItem extends StatelessWidget {
 }
 
 class MessageContentWidget extends StatelessWidget {
+  final bool typing;
+
   const MessageContentWidget({
     super.key,
     required this.message,
+    this.typing = false,
   });
 
   final Message message;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: MarkdownGenerator(
-        generators: [
-          latexGenerator,
+    codeWrapper(child, text) => CodeWrapperWidget(child: child, text: text);
+    return SelectionArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...MarkdownGenerator(
+            config: MarkdownConfig().copy(configs: [
+              const PreConfig().copy(wrapper: codeWrapper),
+            ]),
+            generators: [
+              latexGenerator,
+            ],
+            inlineSyntaxes: [
+              LatexSyntax(),
+            ],
+          ).buildWidgets(message.content),
+          if (typing) const TypingCursor(),
         ],
-        inlineSyntaxes: [
-          LatexSyntax(),
-        ],
-      ).buildWidgets(message.content),
+      ),
     );
   }
 }
