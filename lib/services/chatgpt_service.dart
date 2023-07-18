@@ -4,11 +4,19 @@ import 'package:openai_api/openai_api.dart';
 
 import '../env/env.dart';
 import '../models/message.dart';
+import '../states/settings_state.dart';
 
 class ChatGPTService {
-  final client = OpenaiClient(
-      config: OpenaiConfig(
-          apiKey: Env.apiKey, baseUrl: Env.baseUrl, httpProxy: Env.httpProxy));
+  final client = OpenaiClient(config: OpenaiConfig(apiKey: ''));
+
+  loadConfig() async {
+    final settings = await Settings.load();
+    client.updateConfig(client.config.copyWith(
+      apiKey: settings.apiKey,
+      baseUrl: settings.baseUrl,
+      httpProxy: settings.httpProxy,
+    ));
+  }
 
   Future<ChatCompletionResponse> sendChat(String content) async {
     final request = ChatCompletionRequest(
@@ -75,5 +83,19 @@ extension on List<Message> {
         role: e.isUser ? ChatMessageRole.user : ChatMessageRole.assistant,
       ),
     ).toList();
+  }
+}
+
+extension on OpenaiConfig {
+  OpenaiConfig copyWith({
+    String? apiKey,
+    String? baseUrl,
+    String? httpProxy,
+  }) {
+    return OpenaiConfig(
+      apiKey: apiKey ?? this.apiKey,
+      baseUrl: baseUrl ?? this.baseUrl,
+      httpProxy: httpProxy ?? this.httpProxy,
+    );
   }
 }

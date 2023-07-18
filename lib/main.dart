@@ -23,6 +23,7 @@ void main() async {
       })
     ],
   ).build();
+  await chatgpt.loadConfig();
   runApp(
       //为了能让组件读取provider,我们需要将整个应用都包裹下
       const ProviderScope(

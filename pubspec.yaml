@@ -51,6 +51,7 @@ dependencies:
   flutter_tiktoken: ^0.0.1
   record: ^4.4.4
   path_provider: ^2.0.15
+  localstorage: ^4.0.1+4
 
 dev_dependencies:
   flutter_test:
